@@ -1,0 +1,14 @@
+<h4 mat-dialog-title>Маркер №{{data.numberOfMarker}}</h4>
+<div mat-dialog-content>
+  <p>Координати:</p>
+  <p>
+    <input matInput type="number" [(ngModel)]="data.lat">,
+    <input matInput type="number" [(ngModel)]="data.lng">
+    <input matInput type="number" [(ngModel)]="data.alt">
+  </p>
+</div>
+<div mat-dialog-actions>
+  <button mat-raised-button color="primary" [mat-dialog-close]="data">Зберегти</button>
+  <button mat-raised-button color="warn" (click)="data.deleteMarker = true" [mat-dialog-close]="data">Видалити</button>
+  <button mat-raised-button mat-dialog-close>Закрити</button>
+</div>
