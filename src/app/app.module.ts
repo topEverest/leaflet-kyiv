@@ -1,15 +1,16 @@
 import {NgModule} from '@angular/core';
-import {BrowserModule} from '@angular/platform-browser';
+
 import {AppComponent} from './app.component';
 import {MarkerDialogComponent} from './marker-dialog-component/marker-dialog.component';
 
-import {AppRoutingModule} from './app-routing.module';
+import {BrowserModule} from '@angular/platform-browser';
 import {LeafletModule} from "@asymmetrik/ngx-leaflet";
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {MatDialogModule} from "@angular/material/dialog";
 import {FormsModule} from "@angular/forms";
 import {MatFormFieldModule} from "@angular/material/form-field";
 import {MatButtonModule} from "@angular/material/button";
+import {MatInputModule} from "@angular/material/input";
 
 @NgModule({
   declarations: [
@@ -18,13 +19,13 @@ import {MatButtonModule} from "@angular/material/button";
   ],
   imports: [
     BrowserModule,
-    AppRoutingModule,
     LeafletModule,
     BrowserAnimationsModule,
     MatDialogModule,
     FormsModule,
     MatFormFieldModule,
-    MatButtonModule
+    MatButtonModule,
+    MatInputModule
   ],
   providers: [],
   bootstrap: [AppComponent]

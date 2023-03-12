@@ -1,6 +1,8 @@
-import {MatDialog} from "@angular/material/dialog";
 import {MarkerDialogComponent} from "./marker-dialog-component/marker-dialog.component";
-import {AfterViewInit, Component, ElementRef, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from '@angular/core';
+import {MatDialog} from "@angular/material/dialog";
+import {MapCoordinatesService} from "./services/map-coordinates.service";
+
 import * as L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import 'leaflet-arrowheads';
@@ -16,30 +18,34 @@ export class AppComponent implements AfterViewInit {
   markers: L.Marker[] = [];
   polylines!: L.Polyline;
 
-  constructor(private matDialog: MatDialog) {
+  constructor(
+    private matDialog: MatDialog,
+    private markerService: MapCoordinatesService) {
   }
 
   ngAfterViewInit(): void {
     this.initMap();
   }
 
-  initMap() {
-    this.map = L.map(this.mapContainer.nativeElement).setView([50.431, 30.524], 13);
-
-    this.initPolylinesOptions();
-
+  initMap(): void {
+    this.map = L.map(this.mapContainer.nativeElement).setView([50.4447, 30.5117], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: 'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+      maxZoom: 18,
     }).addTo(this.map);
-
-    this.map.on('click', this.onMapClick.bind(this))
+    this.map.on('click', this.onMapClick.bind(this));
+    this.getFirstsMarkers();
+    this.initPolylinesOptions();
   }
 
-  onMapClick(event: any) {
-    const clickCoords = event.latlng;
-    this.polylines.addLatLng(clickCoords);
+  getFirstsMarkers(): void {
+    this.markerService.getMarkers().forEach((marker: L.Marker) => {
+      this.initMarkers(marker);
+    });
+  }
 
-    const marker = L.marker(clickCoords, {
+  initMarkers(marker: L.Marker) {
+    const updatedMarker = L.marker(marker.getLatLng(), {
       draggable: true,
       icon: L.divIcon({
         html: `<span style="border-radius: 50%;
@@ -51,68 +57,66 @@ export class AppComponent implements AfterViewInit {
                      ">${this.markers.length.toString()}</span>`,
         className: 'numeration'
       })
-    }).addTo(this.map);
-
-    // Altitude
-    marker.options.alt = 100;
-
-    marker.on('click', () => {
+    }).on('click', () => {
       const dialogRef = this.matDialog.open(MarkerDialogComponent,
         {
           data: {
-            lat: marker.getLatLng().lat,
-            lng: marker.getLatLng().lng,
-            alt: marker.options.alt,
+            lat: updatedMarker.getLatLng().lat,
+            lng: updatedMarker.getLatLng().lng,
+            alt: updatedMarker.options.alt,
             deleteMarker: false,
-            numberOfMarker: this.markers.findIndex(el => el.getLatLng() === marker.getLatLng())
+            numberOfMarker: this.markers
+              .findIndex((marker: L.Marker) => marker.getLatLng() === updatedMarker.getLatLng())
           }
         }
       )
 
-      dialogRef.afterClosed().subscribe(res => {
-        if (res) {
-          marker.setLatLng([res.lat, res.lng])
-          marker.options.alt = res.alt;
+      dialogRef.afterClosed().subscribe(data => {
+        if (data.deleteMarker) {
+          this.markers.splice(data.numberOfMarker, 1);
+          updatedMarker.remove();
+          this.polylines.removeFrom(this.map);
+          this.markerService.deleteMarker(data.numberOfMarker);
+          this.reDrawPolylines();
+          this.reDrawIcons();
+          return;
+        }
+
+        if (data) {
+          updatedMarker.setLatLng([data.lat, data.lng]);
+          updatedMarker.options.alt = data.alt;
+          this.markerService.updateMarker(data.numberOfMarker, updatedMarker);
           this.reDrawPolylines();
         }
-
-        if (res.deleteMarker) {
-          const index = this.markers.findIndex(el => el.getLatLng() === marker.getLatLng());
-          this.markers.splice(index, 1);
-          marker.remove();
-          this.polylines.removeFrom(this.map);
-          this.reDrawIcons();
-        }
       });
-    });
-    this.markers.push(marker);
-
-    marker.on('move', () => {
+    }).on('drag', () => {
       this.reDrawPolylines();
-    });
-  }
-
-  clearMarkers() {
-    this.markers.forEach(marker => {
-      this.map.removeLayer(marker);
-    })
-    this.markers = [];
-
-    this.map.eachLayer(layer => {
-      if (layer instanceof L.Polyline) {
-        this.map.removeLayer(layer);
-      }
-    })
-    this.initPolylinesOptions();
-
+    }).on('dragend', () => {
+      const index = this.markers
+        .findIndex((marker: L.Marker) => marker.getLatLng() === updatedMarker.getLatLng());
+      this.markerService.updateMarker(index, updatedMarker);
+    }).addTo(this.map);
+    updatedMarker.options.alt = 100;
+    this.markers.push(updatedMarker);
   }
 
   initPolylinesOptions() {
-    this.polylines = L.polyline([], {
+    const latLngs = this.markers.map((marker: L.Marker) => marker.getLatLng());
+    this.polylines = L.polyline(latLngs, {
       color: 'red',
       weight: 3,
       lineCap: 'round'
     }).arrowheads({size: '30px', fill: true, yawn: 22}).addTo(this.map);
+  }
+
+  onMapClick(event: L.LeafletMouseEvent) {
+    const clickCoords = event.latlng;
+    this.polylines.addLatLng(clickCoords);
+
+    const marker = new L.Marker([clickCoords.lat, clickCoords.lng]);
+    marker.options.alt = 100;
+    this.markerService.addMarker(marker);
+    this.initMarkers(marker);
   }
 
   reDrawPolylines() {
@@ -121,8 +125,8 @@ export class AppComponent implements AfterViewInit {
   }
 
   reDrawIcons() {
-    this.markers.forEach(mark => mark.remove());
-    this.markers.forEach((marker, index) => {
+    this.markers.forEach((marker: L.Marker) => marker.remove());
+    this.markers.forEach((marker: L.Marker, index: number) => {
       marker.setLatLng(marker.getLatLng());
       marker.setIcon(
         L.divIcon({
@@ -138,6 +142,20 @@ export class AppComponent implements AfterViewInit {
       ).addTo(this.map);
     });
   }
-}
 
+  clearMarkers() {
+    this.markers.forEach((marker: L.Marker) => {
+      this.map.removeLayer(marker);
+    })
+    this.markers = [];
+    this.markerService.clearMarkers();
+
+    this.map.eachLayer((layer: L.Layer) => {
+      if (layer instanceof L.Polyline) {
+        this.map.removeLayer(layer);
+      }
+    })
+    this.initPolylinesOptions();
+  }
+}
 

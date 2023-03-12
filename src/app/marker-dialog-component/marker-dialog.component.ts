@@ -1,4 +1,4 @@
-import {Component, EventEmitter, Inject, OnInit, Output} from '@angular/core';
+import {Component, Inject} from '@angular/core';
 import {MAT_DIALOG_DATA, MatDialogRef} from "@angular/material/dialog";
 
 @Component({
@@ -8,18 +8,15 @@ import {MAT_DIALOG_DATA, MatDialogRef} from "@angular/material/dialog";
 })
 export class MarkerDialogComponent {
 
-  @Output() deleteMarker!: EventEmitter<any>;
-
   constructor(
-    public dialogRef: MatDialogRef<MarkerDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: {
       lat: number,
       lng: number,
       alt: number,
-      deleteMarker: boolean,
+      index: number,
+      deleteMarker: boolean | undefined,
       numberOfMarker: number
     }) {
   }
-
 
 }
